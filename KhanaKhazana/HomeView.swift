@@ -243,7 +243,7 @@ struct DishTile: View {
     @EnvironmentObject private var dataController: DataController
     @Binding var selectedLanguage: Language
     @State private var isAddingToCart = false
-    @State private var imageLoaded = false
+    @State private var imageLoaded = true // Set to true by default
     
     private var cartItem: CartItem? {
         dataController.getCart()?.cartItems.first { $0.dish.id == dish.id }
@@ -256,6 +256,9 @@ struct DishTile: View {
                     switch phase {
                     case .empty:
                         Color.gray.frame(width: 160, height: 120)
+                            .onAppear {
+                                imageLoaded = true // Set to true even before loading
+                            }
                     case .success(let image):
                         image
                             .resizable()
@@ -272,10 +275,13 @@ struct DishTile: View {
                                     .foregroundColor(.white)
                             )
                             .onAppear {
-                                imageLoaded = true // Consider image loaded even on failure
+                                imageLoaded = true
                             }
                     @unknown default:
                         Color.gray.frame(width: 160, height: 120)
+                            .onAppear {
+                                imageLoaded = true
+                            }
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -309,9 +315,7 @@ struct DishTile: View {
                     Spacer()
                 }
             }
-            .onTapGesture {
-                print("Tapped dish: \(dish.name), ID: \(dish.id), Image loaded: \(imageLoaded)")
-            }
+            .allowsHitTesting(false)
             
             HStack {
                 Text("₹\(String(format: "%.2f", dish.price))")
@@ -364,26 +368,29 @@ struct DishTile: View {
                 .cornerRadius(8)
             } else {
                 Button(action: {
+                    print("Add to Cart button tapped for \(dish.name)")
                     withAnimation {
                         directAddToCart()
                     }
                 }) {
-                    if isAddingToCart {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(Color.green.opacity(0.7))
-                            .cornerRadius(8)
-                    } else {
-                        Text(selectedLanguage == .english ? "Add to Cart" : "कार्ट में जोड़ें")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(Color.green.opacity(0.7))
-                            .cornerRadius(8)
+                    ZStack {
+                        if isAddingToCart {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(Color.green.opacity(0.7))
+                                .cornerRadius(8)
+                        } else {
+                            Text(selectedLanguage == .english ? "Add to Cart" : "कार्ट में जोड़ें")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(Color.green.opacity(0.7))
+                                .cornerRadius(8)
+                        }
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -409,14 +416,12 @@ struct DishTile: View {
             rating: dish.rating
         )
         
-        // Add directly on the main thread
-        DispatchQueue.main.async {
-            dataController.addDishToCart(dish: dishCopy)
-            
-            // Reset after a short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                isAddingToCart = false
-            }
+        // Add directly without any conditions
+        dataController.addDishToCart(dish: dishCopy)
+        
+        // Reset after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            isAddingToCart = false
         }
     }
 }
@@ -494,7 +499,7 @@ struct SearchResultTile: View {
     let dish: Dish
     @EnvironmentObject private var dataController: DataController
     @State private var isAddingToCart = false
-    @State private var imageLoaded = false
+    @State private var imageLoaded = true // Set to true by default
     
     private var cartItem: CartItem? {
         dataController.getCart()?.cartItems.first { $0.dish.id == dish.id }
@@ -507,6 +512,9 @@ struct SearchResultTile: View {
                     switch phase {
                     case .empty:
                         Color.gray.frame(width: 160, height: 120)
+                            .onAppear {
+                                imageLoaded = true // Set to true even before loading
+                            }
                     case .success(let image):
                         image
                             .resizable()
@@ -523,10 +531,13 @@ struct SearchResultTile: View {
                                     .foregroundColor(.white)
                             )
                             .onAppear {
-                                imageLoaded = true // Consider image loaded even on failure
+                                imageLoaded = true
                             }
                     @unknown default:
                         Color.gray.frame(width: 160, height: 120)
+                            .onAppear {
+                                imageLoaded = true
+                            }
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -545,9 +556,7 @@ struct SearchResultTile: View {
                     .background(Color.black.opacity(0.7))
                 }
             }
-            .onTapGesture {
-                print("Tapped search dish: \(dish.name), ID: \(dish.id), Image loaded: \(imageLoaded)")
-            }
+            .allowsHitTesting(false)
             
             HStack {
                 Text("₹\(String(format: "%.2f", dish.price))")
@@ -598,26 +607,29 @@ struct SearchResultTile: View {
                 .cornerRadius(8)
             } else {
                 Button(action: {
+                    print("Add to Cart button tapped for search dish \(dish.name)")
                     withAnimation {
                         directAddToCart()
                     }
                 }) {
-                    if isAddingToCart {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(Color.blue)
-                            .cornerRadius(8)
-                    } else {
-                        Text("Add to Cart")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(Color.blue)
-                            .cornerRadius(8)
+                    ZStack {
+                        if isAddingToCart {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(Color.blue)
+                                .cornerRadius(8)
+                        } else {
+                            Text("Add to Cart")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(Color.blue)
+                                .cornerRadius(8)
+                        }
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -643,14 +655,12 @@ struct SearchResultTile: View {
             rating: dish.rating
         )
         
-        // Add directly on the main thread
-        DispatchQueue.main.async {
-            dataController.addDishToCart(dish: dishCopy)
-            
-            // Reset after a short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                isAddingToCart = false
-            }
+        // Add directly without any conditions
+        dataController.addDishToCart(dish: dishCopy)
+        
+        // Reset after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            isAddingToCart = false
         }
     }
 }
