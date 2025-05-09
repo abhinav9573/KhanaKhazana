@@ -442,7 +442,7 @@ class DataController: ObservableObject {
         
         // Create plain Dictionary representation for better API compatibility
         let requestDict: [String: Any] = [
-            "total_amount": String(Int(cart.grandTotal)),
+            "total_amount": String(format: "%.2f", cart.grandTotal),
             "total_items": cart.cartItems.reduce(0) { $0 + $1.quantity },
             "data": cart.cartItems.map { item in
                 [
