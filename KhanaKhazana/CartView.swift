@@ -51,7 +51,7 @@ struct CartView: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                         .frame(maxWidth: .infinity)
                                         .padding()
-                                        .background(Color.blue)
+                                        .background(Color.brown)
                                         .cornerRadius(12)
                                 } else {
                                     Text("Place Order")
@@ -59,7 +59,7 @@ struct CartView: View {
                                         .foregroundColor(.white)
                                         .frame(maxWidth: .infinity)
                                         .padding()
-                                        .background(Color.blue)
+                                        .background(Color.brown)
                                         .cornerRadius(12)
                                 }
                             }
@@ -87,7 +87,7 @@ struct CartView: View {
                     Button(action: {
                         dismiss()
                     }) {
-                        Image(systemName: "xmark")
+                        Image(systemName: "xmark.circle")
                             .font(.title2)
                     }
                 }
@@ -179,7 +179,7 @@ struct CartItemRow: View {
                         dataController.removeDishFromCart(dish: item.dish)
                     }) {
                         Image(systemName: "minus.circle.fill")
-                            .foregroundColor(.blue)
+                            .foregroundColor(.brown)
                     }
                     
                     Text("\(item.quantity)")
@@ -190,7 +190,7 @@ struct CartItemRow: View {
                         dataController.addDishToCart(dish: item.dish)
                     }) {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundColor(.blue)
+                            .foregroundColor(.brown)
                     }
                 }
             }

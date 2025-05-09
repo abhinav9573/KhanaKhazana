@@ -20,7 +20,7 @@ struct ContentView: View {
             if isLoading {
                 ProgressView("Loading cuisines...")
                     .padding()
-                    .background(Color.white.opacity(0.8))
+                    .background(Color.brown.opacity(0.2))
                     .cornerRadius(10)
                     .shadow(radius: 5)
             }

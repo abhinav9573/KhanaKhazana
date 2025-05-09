@@ -1,102 +1,178 @@
+//
+//  CuisineDetailView.swift
+//  KhanaKhazana
+//
+
 import SwiftUI
 
 struct CuisineDetailView: View {
     let cuisine: Cuisine
-    @EnvironmentObject private var dataController: DataController
-    @State var selectedLanguage: Language = .english
     @Environment(\.dismiss) private var dismiss
-    @State private var isLoading = true
+    @EnvironmentObject private var dataController: DataController
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        // Cuisine Header
-                        AsyncImage(url: URL(string: cuisine.image)) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Color.gray
-                        }
-                        .frame(height: 200)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        
-                        Text(cuisine.name)
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .padding(.horizontal)
-                        
-                        // Dishes List
-                        if !isLoading {
-                            LazyVGrid(columns: [
-                                GridItem(.flexible()),
-                                GridItem(.flexible())
-                            ], spacing: 15) {
-                                ForEach(cuisine.dishes, id: \.id) { dish in
-                                    DishTile(dish: dish, selectedLanguage: $selectedLanguage)
-                                        .environmentObject(dataController)
-                                        .id(dish.id)
-                                        .onTapGesture {
-                                            print("Tapped dish in cuisine view: \(dish.name), ID: \(dish.id)")
-                                        }
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
+        VStack(spacing: 0) {
+            // Header image with back button
+            ZStack(alignment: .top) {
+                // Header Image
+                AsyncImage(url: URL(string: cuisine.image)) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.gray
                 }
+                .frame(height: 200)
+                .clipped()
                 
-                if isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.white.opacity(0.6))
+                // Gradient overlay for better visibility of content against the image
+                LinearGradient(
+                    gradient: Gradient(
+                        colors: [
+                            Color.black.opacity(0.5),
+                            Color.black.opacity(0.3),
+                            Color.black.opacity(0.1),
+                            Color.clear
+                        ]
+                    ),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 200)
+                
+                // Back button and title
+                VStack {
+                    HStack {
+                        Button(action: {
+                            dismiss()
+                        }) {
+                            // Change from X to Cancel text
+                            Text("Cancel")
+                                .foregroundColor(.white)
+                                .padding(8)
+                                .background(Color.brown.opacity(0.7))
+                                .cornerRadius(8)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding()
+                    
+                    Spacer()
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        dismiss()
-                    }) {
-                        Image(systemName: "xmark")
-                            .font(.title2)
+            
+            // Cuisine title
+            Text(cuisine.name)
+                .font(.title)
+                .fontWeight(.bold)
+                .padding()
+            
+            Divider()
+                .padding(.horizontal)
+            
+            // Dishes list
+            ScrollView {
+                LazyVStack(spacing: 16) {
+                    ForEach(cuisine.dishes, id: \.id) { dish in
+                        DishRow(dish: dish)
                     }
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        selectedLanguage = selectedLanguage == .english ? .hindi : .english
-                    }) {
-                        Text(selectedLanguage == .english ? "अ" : "A")
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, selectedLanguage == .english ? 8 : 7)
-                            .background(Color.green.opacity(0.7))
-                            .foregroundColor(.white)
-                            .cornerRadius(.infinity)
-                    }
-                }
+                .padding()
             }
-            .onAppear {
-                // Set a small delay to ensure data is ready
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    isLoading = false
+        }
+        .edgesIgnoringSafeArea(.top)
+        .navigationBarHidden(true)
+    }
+}
+
+struct DishRow: View {
+    let dish: Dish
+    @EnvironmentObject private var dataController: DataController
+    
+    private var cartItem: CartItem? {
+        dataController.getCart()?.cartItems.first { $0.dish.id == dish.id }
+    }
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Dish image
+            AsyncImage(url: URL(string: dish.image)) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Color.gray
+            }
+            .frame(width: 80, height: 80)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            
+            // Dish info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(dish.name)
+                    .font(.headline)
+                
+                HStack {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.yellow)
+                        .font(.caption)
+                    Text(String(format: "%.1f", dish.rating))
+                        .font(.caption)
+                        .foregroundColor(.gray)
                 }
                 
-                print("CuisineDetailView appeared with \(cuisine.dishes.count) dishes")
-                cuisine.dishes.forEach { dish in
-                    print("Dish: \(dish.name), ID: \(dish.id), Price: \(dish.price)")
+                Text("₹\(String(format: "%.2f", dish.price))")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.brown.opacity(0.8))
+            }
+            
+            Spacer()
+            
+            // Add to cart controls
+            if let cartItem = cartItem {
+                HStack {
+                    Button(action: {
+                        dataController.removeDishFromCart(dish: dish)
+                    }) {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundColor(.brown)
+                            .imageScale(.large)
+                    }
+                    
+                    Text("\(cartItem.quantity)")
+                        .font(.headline)
+                        .frame(minWidth: 30)
+                    
+                    Button(action: {
+                        dataController.addDishToCart(dish: dish)
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.brown)
+                            .imageScale(.large)
+                    }
                 }
-                
-                // Debug print cart status
-                if let cart = dataController.getCart(), !cart.cartItems.isEmpty {
-                    print("CuisineDetailView: cart has \(cart.cartItems.count) items")
-                } else {
-                    print("CuisineDetailView: cart is empty")
+            } else {
+                Button(action: {
+                    dataController.addDishToCart(dish: dish)
+                }) {
+                    Text("Add")
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.brown)
+                        .cornerRadius(8)
                 }
             }
         }
+        .padding()
+        .background(Color.brown.opacity(0.1))
+        .cornerRadius(12)
     }
+}
+
+#Preview {
+//    CuisineDetailView(cuisine: Cuisine.example)
+//        .environmentObject(DataController.shared)
 } 

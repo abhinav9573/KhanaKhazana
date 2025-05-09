@@ -94,7 +94,7 @@ struct HomeView: View {
                                 proxy.scrollTo(currentIndex, anchor: .center)
                             }
                         }
-                        .foregroundColor(.green.opacity(0.7))
+                        .foregroundColor(.brown.opacity(0.7))
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 15) {
                                 ForEach(cuisines.indices, id: \.self) { i in
@@ -119,7 +119,7 @@ struct HomeView: View {
                                 proxy.scrollTo(currentIndex, anchor: .center)
                             }
                         }
-                        .foregroundColor(.green.opacity(0.7))
+                        .foregroundColor(.brown.opacity(0.7))
                     }
 
                     HStack(spacing: 30) {
@@ -165,7 +165,7 @@ struct HomeView: View {
             Text(selectedLanguage == .english ? "अ" : "A")
                 .padding(.horizontal, 12)
                 .padding(.vertical, selectedLanguage == .english ? 8 : 7)
-                .background(Color.green.opacity(0.7))
+                .background(Color.brown.opacity(0.7))
                 .foregroundColor(.white)
                 .cornerRadius(.infinity)
         }
@@ -177,7 +177,7 @@ struct HomeView: View {
         }) {
             Image(systemName: "cart")
                 .font(.title2)
-                .foregroundStyle(Color.green.opacity(0.7))
+                .foregroundStyle(Color.brown.opacity(0.7))
         }
     }
     struct ScrollOffsetKey: PreferenceKey {
@@ -347,7 +347,7 @@ struct DishTile: View {
                         }
                     }) {
                         Image(systemName: "minus.circle.fill")
-                            .foregroundColor(.green.opacity(0.7))
+                            .foregroundColor(.brown.opacity(0.7))
                             .imageScale(.large)
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -363,14 +363,14 @@ struct DishTile: View {
                         }
                     }) {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundColor(.green.opacity(0.7))
+                            .foregroundColor(.brown.opacity(0.7))
                             .imageScale(.large)
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                .background(Color.green.opacity(0.1))
+                .background(Color.brown.opacity(0.1))
                 .cornerRadius(8)
             } else {
                 Button(action: {
@@ -385,7 +385,7 @@ struct DishTile: View {
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(Color.green.opacity(0.7))
+                                .background(Color.brown.opacity(0.7))
                                 .cornerRadius(8)
                         } else {
                             Text(selectedLanguage == .english ? "Add to Cart" : "कार्ट में जोड़ें")
@@ -394,7 +394,7 @@ struct DishTile: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(Color.green.opacity(0.7))
+                                .background(Color.brown.opacity(0.7))
                                 .cornerRadius(8)
                         }
                     }
@@ -512,140 +512,141 @@ struct SearchResultTile: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading) {
-            ZStack {
-                AsyncImage(url: URL(string: dish.image)) { phase in
-                    switch phase {
-                    case .empty:
-                        Color.gray.frame(width: 160, height: 120)
-                            .onAppear {
-                                imageLoaded = true // Set to true even before loading
-                            }
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 160, height: 120)
-                            .clipped()
-                            .onAppear {
-                                imageLoaded = true
-                            }
-                    case .failure:
-                        Color.gray.frame(width: 160, height: 120)
-                            .overlay(
-                                Image(systemName: "photo")
-                                    .foregroundColor(.white)
-                            )
-                            .onAppear {
-                                imageLoaded = true
-                            }
-                    @unknown default:
-                        Color.gray.frame(width: 160, height: 120)
-                            .onAppear {
-                                imageLoaded = true
-                            }
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                
-                VStack {
-                    Spacer()
-                    HStack {
-                        Text(dish.name)
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                            .padding(4)
-                        Spacer()
-                    }
-                    .background(Color.black.opacity(0.7))
-                }
-            }
-            .allowsHitTesting(false)
-            
-            HStack {
-                Text("₹\(String(format: "%.2f", dish.price))")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                HStack {
-                    Image(systemName: "star.fill")
-                        .foregroundColor(.yellow)
-                    Text(String(format: "%.1f", dish.rating))
-                }
-                .font(.caption)
-            }
-            
-            if let cartItem = cartItem {
-                HStack {
-                    Button(action: {
-                        withAnimation {
-                            dataController.removeDishFromCart(dish: dish)
-                        }
-                    }) {
-                        Image(systemName: "minus.circle.fill")
-                            .foregroundColor(.blue)
-                            .imageScale(.large)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    Text("\(cartItem.quantity)")
-                        .font(.headline)
-                        .frame(minWidth: 30)
-                    
-                    Button(action: {
-                        withAnimation {
-                            directAddToCart()
-                        }
-                    }) {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundColor(.blue)
-                            .imageScale(.large)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(8)
-            } else {
-                Button(action: {
-                    print("Add to Cart button tapped for search dish \(dish.name)")
-                    withAnimation {
-                        directAddToCart()
-                    }
-                }) {
-                    ZStack {
-                        if isAddingToCart {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(Color.blue)
-                                .cornerRadius(8)
-                        } else {
-                            Text("Add to Cart")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(Color.blue)
-                                .cornerRadius(8)
-                        }
-                    }
-                }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(isAddingToCart)
-            }
-        }
-        .padding(8)
-        .background(Color.white)
-        .cornerRadius(12)
-        .shadow(radius: 3)
+        DishTile(dish: dish, selectedLanguage: .constant(.english))
+//        VStack(alignment: .leading) {
+//            ZStack {
+//                AsyncImage(url: URL(string: dish.image)) { phase in
+//                    switch phase {
+//                    case .empty:
+//                        Color.gray.frame(width: 160, height: 120)
+//                            .onAppear {
+//                                imageLoaded = true // Set to true even before loading
+//                            }
+//                    case .success(let image):
+//                        image
+//                            .resizable()
+//                            .aspectRatio(contentMode: .fill)
+//                            .frame(width: 160, height: 120)
+//                            .clipped()
+//                            .onAppear {
+//                                imageLoaded = true
+//                            }
+//                    case .failure:
+//                        Color.gray.frame(width: 160, height: 120)
+//                            .overlay(
+//                                Image(systemName: "photo")
+//                                    .foregroundColor(.white)
+//                            )
+//                            .onAppear {
+//                                imageLoaded = true
+//                            }
+//                    @unknown default:
+//                        Color.gray.frame(width: 160, height: 120)
+//                            .onAppear {
+//                                imageLoaded = true
+//                            }
+//                    }
+//                }
+//                .clipShape(RoundedRectangle(cornerRadius: 8))
+//                
+//                VStack {
+//                    Spacer()
+//                    HStack {
+//                        Text(dish.name)
+//                            .font(.caption)
+//                            .fontWeight(.bold)
+//                            .foregroundColor(.white)
+//                            .lineLimit(1)
+//                            .padding(4)
+//                        Spacer()
+//                    }
+//                    .background(Color.black.opacity(0.7))
+//                }
+//            }
+//            .allowsHitTesting(false)
+//            
+//            HStack {
+//                Text("₹\(String(format: "%.2f", dish.price))")
+//                    .font(.subheadline)
+//                    .fontWeight(.semibold)
+//                
+//                Spacer()
+//                
+//                HStack {
+//                    Image(systemName: "star.fill")
+//                        .foregroundColor(.yellow)
+//                    Text(String(format: "%.1f", dish.rating))
+//                }
+//                .font(.caption)
+//            }
+//            
+//            if let cartItem = cartItem {
+//                HStack {
+//                    Button(action: {
+//                        withAnimation {
+//                            dataController.removeDishFromCart(dish: dish)
+//                        }
+//                    }) {
+//                        Image(systemName: "minus.circle.fill")
+//                            .foregroundColor(.brown)
+//                            .imageScale(.large)
+//                    }
+//                    .buttonStyle(PlainButtonStyle())
+//                    
+//                    Text("\(cartItem.quantity)")
+//                        .font(.headline)
+//                        .frame(minWidth: 30)
+//                    
+//                    Button(action: {
+//                        withAnimation {
+//                            directAddToCart()
+//                        }
+//                    }) {
+//                        Image(systemName: "plus.circle.fill")
+//                            .foregroundColor(.brown)
+//                            .imageScale(.large)
+//                    }
+//                    .buttonStyle(PlainButtonStyle())
+//                }
+//                .frame(maxWidth: .infinity)
+//                .padding(.vertical, 8)
+//                .background(Color.brown.opacity(0.1))
+//                .cornerRadius(8)
+//            } else {
+//                Button(action: {
+//                    print("Add to Cart button tapped for search dish \(dish.name)")
+//                    withAnimation {
+//                        directAddToCart()
+//                    }
+//                }) {
+//                    ZStack {
+//                        if isAddingToCart {
+//                            ProgressView()
+//                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+//                                .frame(maxWidth: .infinity)
+//                                .padding(.vertical, 8)
+//                                .background(Color.brown)
+//                                .cornerRadius(8)
+//                        } else {
+//                            Text("Add to Cart")
+//                                .font(.caption)
+//                                .fontWeight(.semibold)
+//                                .foregroundColor(.white)
+//                                .frame(maxWidth: .infinity)
+//                                .padding(.vertical, 8)
+//                                .background(Color.brown)
+//                                .cornerRadius(8)
+//                        }
+//                    }
+//                }
+//                .buttonStyle(PlainButtonStyle())
+//                .disabled(isAddingToCart)
+//            }
+//        }
+//        .padding(8)
+//        .background(Color.white)
+//        .cornerRadius(12)
+//        .shadow(radius: 3)
     }
     
     private func directAddToCart() {

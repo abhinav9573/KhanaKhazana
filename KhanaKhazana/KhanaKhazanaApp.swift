@@ -15,10 +15,16 @@ struct KhanaKhazanaApp: App {
     // Create app lifecycle event observer
     @Environment(\.scenePhase) private var scenePhase
     
+    init() {
+        // Set brown as the app's accent color
+        UINavigationBar.appearance().tintColor = UIColor.brown
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(dataController)
+                .accentColor(Color.brown)
         }
         .onChange(of: scenePhase) { phase in
             // Save data when app moves to background or inactive state
