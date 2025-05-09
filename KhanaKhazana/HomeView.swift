@@ -11,7 +11,12 @@ struct HomeView: View {
     @State private var selectedSegment = 0
     
     var originalCuisines: [Cuisine] {
-        dataController.getCuisines()
+        // Create a dictionary where the key is the cuisine ID to filter out duplicates
+        let uniqueCuisines = Dictionary(grouping: dataController.getCuisines(), by: { $0.id })
+            .compactMapValues { $0.first }
+            .values
+            .sorted(by: { $0.name < $1.name })
+        return Array(uniqueCuisines)
     }
     
     var body: some View {
@@ -97,7 +102,8 @@ struct HomeView: View {
                                     CuisineCard(cuisine: cuisine, selectedLanguage: $selectedLanguage)
                                         .onTapGesture {
                                             selectedCuisine = cuisine
-                                            DispatchQueue.main.async {
+                                            // Add a slight delay to ensure the selection is properly registered
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                                 showCuisineDetail = true
                                             }
                                         }
@@ -107,7 +113,7 @@ struct HomeView: View {
                             .padding(.horizontal, 5)
                         }
                         Button("", systemImage: "chevron.right") {
-                            guard currentIndex > 0 else { return }
+                            guard currentIndex < cuisines.count - 1 else { return }
                             currentIndex = (currentIndex + 1) % cuisines.count
                             withAnimation {
                                 proxy.scrollTo(currentIndex, anchor: .center)
