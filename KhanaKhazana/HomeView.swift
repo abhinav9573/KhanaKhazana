@@ -86,40 +86,22 @@ struct HomeView: View {
 
             ScrollViewReader { proxy in
                 VStack {
-                    HStack(spacing: 1) {
-                        Button("", systemImage: "chevron.left") {
-                            guard currentIndex > 0 else { return }
-                            currentIndex = (currentIndex - 1 + cuisines.count) % cuisines.count
-                            withAnimation {
-                                proxy.scrollTo(currentIndex, anchor: .center)
-                            }
-                        }
-                        .foregroundColor(.brown.opacity(0.7))
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 15) {
-                                ForEach(cuisines.indices, id: \.self) { i in
-                                    let cuisine = cuisines[i]
-                                    CuisineCard(cuisine: cuisine, selectedLanguage: $selectedLanguage)
-                                        .onTapGesture {
-                                            selectedCuisine = cuisine
-                                            // Add a slight delay to ensure the selection is properly registered
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                                showCuisineDetail = true
-                                            }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 15) {
+                            ForEach(cuisines.indices, id: \.self) { i in
+                                let cuisine = cuisines[i]
+                                CuisineCard(cuisine: cuisine, selectedLanguage: $selectedLanguage)
+                                    .onTapGesture {
+                                        selectedCuisine = cuisine
+                                        // Add a slight delay to ensure the selection is properly registered
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                            showCuisineDetail = true
                                         }
-                                        .id(i)
-                                }
-                            }
-                            .padding(.horizontal, 5)
-                        }
-                        Button("", systemImage: "chevron.right") {
-                            guard currentIndex < cuisines.count - 1 else { return }
-                            currentIndex = (currentIndex + 1) % cuisines.count
-                            withAnimation {
-                                proxy.scrollTo(currentIndex, anchor: .center)
+                                    }
+                                    .id(i)
                             }
                         }
-                        .foregroundColor(.brown.opacity(0.7))
+                        .padding(.horizontal, 5)
                     }
 
                     HStack(spacing: 30) {
@@ -134,7 +116,6 @@ struct HomeView: View {
                 }
             }
         }
-
     }
 
     
@@ -165,7 +146,7 @@ struct HomeView: View {
             Text(selectedLanguage == .english ? "अ" : "A")
                 .padding(.horizontal, 12)
                 .padding(.vertical, selectedLanguage == .english ? 8 : 7)
-                .background(Color.brown.opacity(0.7))
+                .background(Color.brown)
                 .foregroundColor(.white)
                 .cornerRadius(.infinity)
         }
@@ -175,9 +156,23 @@ struct HomeView: View {
         Button(action: {
             showCart = true
         }) {
-            Image(systemName: "cart")
-                .font(.title2)
-                .foregroundStyle(Color.brown.opacity(0.7))
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "cart")
+                    .font(.title2)
+                    .foregroundStyle(Color.brown.opacity(0.7))
+                
+                if let cart = dataController.getCart(), !cart.cartItems.isEmpty {
+                    let totalItems = cart.cartItems.reduce(0) { $0 + $1.quantity }
+                    Text("\(totalItems)")
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(.white)
+                        .frame(width: 20, height: 20)
+                        .background(Color.brown)
+                        .clipShape(Circle())
+                        .offset(x: 10, y: -10)
+                }
+            }
         }
     }
     struct ScrollOffsetKey: PreferenceKey {
@@ -347,7 +342,7 @@ struct DishTile: View {
                         }
                     }) {
                         Image(systemName: "minus.circle.fill")
-                            .foregroundColor(.brown.opacity(0.7))
+                            .foregroundColor(.brown)
                             .imageScale(.large)
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -363,7 +358,7 @@ struct DishTile: View {
                         }
                     }) {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundColor(.brown.opacity(0.7))
+                            .foregroundColor(.brown)
                             .imageScale(.large)
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -394,7 +389,7 @@ struct DishTile: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(Color.brown.opacity(0.7))
+                                .background(Color.brown)
                                 .cornerRadius(8)
                         }
                     }
@@ -513,140 +508,6 @@ struct SearchResultTile: View {
     
     var body: some View {
         DishTile(dish: dish, selectedLanguage: .constant(.english))
-//        VStack(alignment: .leading) {
-//            ZStack {
-//                AsyncImage(url: URL(string: dish.image)) { phase in
-//                    switch phase {
-//                    case .empty:
-//                        Color.gray.frame(width: 160, height: 120)
-//                            .onAppear {
-//                                imageLoaded = true // Set to true even before loading
-//                            }
-//                    case .success(let image):
-//                        image
-//                            .resizable()
-//                            .aspectRatio(contentMode: .fill)
-//                            .frame(width: 160, height: 120)
-//                            .clipped()
-//                            .onAppear {
-//                                imageLoaded = true
-//                            }
-//                    case .failure:
-//                        Color.gray.frame(width: 160, height: 120)
-//                            .overlay(
-//                                Image(systemName: "photo")
-//                                    .foregroundColor(.white)
-//                            )
-//                            .onAppear {
-//                                imageLoaded = true
-//                            }
-//                    @unknown default:
-//                        Color.gray.frame(width: 160, height: 120)
-//                            .onAppear {
-//                                imageLoaded = true
-//                            }
-//                    }
-//                }
-//                .clipShape(RoundedRectangle(cornerRadius: 8))
-//                
-//                VStack {
-//                    Spacer()
-//                    HStack {
-//                        Text(dish.name)
-//                            .font(.caption)
-//                            .fontWeight(.bold)
-//                            .foregroundColor(.white)
-//                            .lineLimit(1)
-//                            .padding(4)
-//                        Spacer()
-//                    }
-//                    .background(Color.black.opacity(0.7))
-//                }
-//            }
-//            .allowsHitTesting(false)
-//            
-//            HStack {
-//                Text("₹\(String(format: "%.2f", dish.price))")
-//                    .font(.subheadline)
-//                    .fontWeight(.semibold)
-//                
-//                Spacer()
-//                
-//                HStack {
-//                    Image(systemName: "star.fill")
-//                        .foregroundColor(.yellow)
-//                    Text(String(format: "%.1f", dish.rating))
-//                }
-//                .font(.caption)
-//            }
-//            
-//            if let cartItem = cartItem {
-//                HStack {
-//                    Button(action: {
-//                        withAnimation {
-//                            dataController.removeDishFromCart(dish: dish)
-//                        }
-//                    }) {
-//                        Image(systemName: "minus.circle.fill")
-//                            .foregroundColor(.brown)
-//                            .imageScale(.large)
-//                    }
-//                    .buttonStyle(PlainButtonStyle())
-//                    
-//                    Text("\(cartItem.quantity)")
-//                        .font(.headline)
-//                        .frame(minWidth: 30)
-//                    
-//                    Button(action: {
-//                        withAnimation {
-//                            directAddToCart()
-//                        }
-//                    }) {
-//                        Image(systemName: "plus.circle.fill")
-//                            .foregroundColor(.brown)
-//                            .imageScale(.large)
-//                    }
-//                    .buttonStyle(PlainButtonStyle())
-//                }
-//                .frame(maxWidth: .infinity)
-//                .padding(.vertical, 8)
-//                .background(Color.brown.opacity(0.1))
-//                .cornerRadius(8)
-//            } else {
-//                Button(action: {
-//                    print("Add to Cart button tapped for search dish \(dish.name)")
-//                    withAnimation {
-//                        directAddToCart()
-//                    }
-//                }) {
-//                    ZStack {
-//                        if isAddingToCart {
-//                            ProgressView()
-//                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-//                                .frame(maxWidth: .infinity)
-//                                .padding(.vertical, 8)
-//                                .background(Color.brown)
-//                                .cornerRadius(8)
-//                        } else {
-//                            Text("Add to Cart")
-//                                .font(.caption)
-//                                .fontWeight(.semibold)
-//                                .foregroundColor(.white)
-//                                .frame(maxWidth: .infinity)
-//                                .padding(.vertical, 8)
-//                                .background(Color.brown)
-//                                .cornerRadius(8)
-//                        }
-//                    }
-//                }
-//                .buttonStyle(PlainButtonStyle())
-//                .disabled(isAddingToCart)
-//            }
-//        }
-//        .padding(8)
-//        .background(Color.white)
-//        .cornerRadius(12)
-//        .shadow(radius: 3)
     }
     
     private func directAddToCart() {

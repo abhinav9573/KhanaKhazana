@@ -89,6 +89,7 @@ struct CartView: View {
                     }) {
                         Image(systemName: "xmark.circle")
                             .font(.title2)
+                            .foregroundStyle(.brown)
                     }
                 }
             }
