@@ -11,6 +11,10 @@ struct CartView: View {
     @StateObject private var dataController = DataController.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showOrderPlaced = false
+    @State private var showOrderError = false
+    @State private var errorMessage = ""
+    @State private var transactionId: String = ""
+    @State private var isProcessingOrder = false
     
     var body: some View {
         NavigationView {
@@ -40,26 +44,26 @@ struct CartView: View {
                             
                             // Place Order Button
                             Button(action: {
-                                showOrderPlaced = true
-                                Task {
-                                    do {
-                                        let response = try await DataController.shared.makePayment()
-                                        print("Payment successful with transaction reference: \(response.txnRefNo)")
-                                        DataController.shared.orderDishesFromCart()
-                                    } catch {
-                                        print("Payment failed with error: \(error)")
-                                        // You might want to show an error alert here
-                                    }
-                                }
+                                placeOrder()
                             }) {
-                                Text("Place Order")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(Color.blue)
-                                    .cornerRadius(12)
+                                if isProcessingOrder {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.blue)
+                                        .cornerRadius(12)
+                                } else {
+                                    Text("Place Order")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.blue)
+                                        .cornerRadius(12)
+                                }
                             }
+                            .disabled(isProcessingOrder)
                             .padding(.horizontal)
                         }
                         .padding(.vertical)
@@ -93,7 +97,54 @@ struct CartView: View {
                     dismiss()
                 }
             } message: {
-                Text("Your order has been placed successfully!")
+                Text("Your order has been placed successfully!\nTransaction ID: \(transactionId)")
+            }
+            .alert("Order Failed", isPresented: $showOrderError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(errorMessage)
+            }
+        }
+    }
+    
+    private func placeOrder() {
+        guard !isProcessingOrder else { return }
+        
+        print("Starting order placement process")
+        isProcessingOrder = true
+        
+        if let cart = dataController.getCart() {
+            print("Cart contains \(cart.cartItems.count) items with a total of \(cart.grandTotal)")
+            
+            for (index, item) in cart.cartItems.enumerated() {
+                print("Item \(index+1): \(item.dish.name), Price: \(item.dish.price), Quantity: \(item.quantity)")
+            }
+        }
+        
+        Task {
+            do {
+                print("Calling makePayment...")
+                let response = try await DataController.shared.makePayment()
+                print("Payment successful with transaction reference: \(response.txnRefNo)")
+                
+                // Update on main thread
+                await MainActor.run {
+                    transactionId = response.txnRefNo
+                    isProcessingOrder = false
+                    showOrderPlaced = true
+                    print("Order placed successfully")
+                }
+            } catch {
+                print("Payment failed with error: \(error), \(error.localizedDescription)")
+                
+                // Update on main thread
+                await MainActor.run {
+                    // More specific error message
+                    errorMessage = "Failed to place order: \(error.localizedDescription)"
+                    isProcessingOrder = false
+                    showOrderError = true
+                    print("Order placement failed")
+                }
             }
         }
     }

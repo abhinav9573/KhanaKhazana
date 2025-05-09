@@ -8,12 +8,14 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var dataController = DataController.shared
+    // Use EnvironmentObject instead of StateObject to ensure consistent state across the app
+    @EnvironmentObject private var dataController: DataController
     @State private var isLoading = true
     
     var body: some View {
         ZStack {
             HomeView()
+                .environmentObject(dataController)
             
             if isLoading {
                 ProgressView("Loading cuisines...")
@@ -24,14 +26,29 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            Task {
-                do {
-                    try await dataController.loadCuisines(count: 10)
-                    isLoading = false
-                } catch {
-                    print("Error loading cuisines: \(error)")
-                    isLoading = false
+            // Check if data is already loaded
+            if dataController.isAPIWorking {
+                isLoading = false
+            } else {
+                Task {
+                    do {
+                        try await dataController.loadCuisines(count: 10)
+                        isLoading = false
+                    } catch {
+                        print("Error loading cuisines: \(error)")
+                        isLoading = false
+                    }
                 }
+            }
+            
+            // Debug print cart content on startup
+            if let cart = dataController.getCart(), !cart.cartItems.isEmpty {
+                print("ContentView appeared with \(cart.cartItems.count) items in cart")
+                for (index, item) in cart.cartItems.enumerated() {
+                    print("Cart item \(index + 1): \(item.dish.name), Quantity: \(item.quantity)")
+                }
+            } else {
+                print("ContentView appeared with empty cart")
             }
         }
     }
@@ -39,4 +56,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .environmentObject(DataController.shared)
 }

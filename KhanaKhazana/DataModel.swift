@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Dish: Codable, Hashable {
+struct Dish: Codable, Hashable, Identifiable {
     var id: String
     var name: String
     var image: String
@@ -32,15 +32,60 @@ struct Dish: Codable, Hashable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-        image = try container.decode(String.self, forKey: .image)
         
-        let priceString = try container.decode(String.self, forKey: .price)
-        price = Double(priceString) ?? 0
+        // Handle different ID types (String or Int)
+        if let stringId = try? container.decode(String.self, forKey: .id) {
+            id = stringId
+        } else if let intId = try? container.decode(Int.self, forKey: .id) {
+            id = String(intId)
+        } else {
+            id = UUID().uuidString
+        }
         
-        let ratingString = try container.decode(String.self, forKey: .rating)
-        rating = Double(ratingString) ?? 0
+        // Handle name with fallback
+        if let decodedName = try? container.decode(String.self, forKey: .name) {
+            name = decodedName
+        } else {
+            name = "Unknown Dish"
+        }
+        
+        // Handle image with fallback
+        if let decodedImage = try? container.decode(String.self, forKey: .image) {
+            image = decodedImage
+        } else {
+            image = ""
+        }
+        
+        // Handle price with multiple formats
+        if let priceString = try? container.decode(String.self, forKey: .price) {
+            price = Double(priceString) ?? 0
+        } else if let priceDouble = try? container.decode(Double.self, forKey: .price) {
+            price = priceDouble
+        } else if let priceInt = try? container.decode(Int.self, forKey: .price) {
+            price = Double(priceInt)
+        } else {
+            price = 0
+        }
+        
+        // Handle rating with multiple formats
+        if let ratingString = try? container.decode(String.self, forKey: .rating) {
+            rating = Double(ratingString) ?? 0
+        } else if let ratingDouble = try? container.decode(Double.self, forKey: .rating) {
+            rating = ratingDouble
+        } else if let ratingInt = try? container.decode(Int.self, forKey: .rating) {
+            rating = Double(ratingInt)
+        } else {
+            rating = 0
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(image, forKey: .image)
+        try container.encode(price, forKey: .price)
+        try container.encode(rating, forKey: .rating)
     }
 }
 
@@ -61,12 +106,16 @@ struct Cuisine: Codable {
 }
 
 
-struct CartItem: Codable, Hashable{
+struct CartItem: Codable, Hashable, Identifiable {
     var dish: Dish
     var quantity: Int
+    
+    var id: String {
+        dish.id
+    }
 }
 
-struct Cart: Codable {
+struct Cart: Codable, Identifiable {
     var id: UUID
     var userId: UUID
     var cartItems: [CartItem]
@@ -74,7 +123,7 @@ struct Cart: Codable {
         cartItems.reduce(0.0) { $0 + ($1.dish.price * Double($1.quantity)) }
     }
     
-    private var taxRate: Double = 0.25
+    private var taxRate: Double = 0.025
     var cgst: Double {
         netAmount * taxRate
     }
@@ -89,6 +138,25 @@ struct Cart: Codable {
         self.id = id
         self.userId = userId
         self.cartItems = cartItems
+    }
+    
+    // Custom encode/decode to handle computed properties
+    private enum CodingKeys: String, CodingKey {
+        case id, userId, cartItems
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        userId = try container.decode(UUID.self, forKey: .userId)
+        cartItems = try container.decode([CartItem].self, forKey: .cartItems)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(userId, forKey: .userId)
+        try container.encode(cartItems, forKey: .cartItems)
     }
 }
 
@@ -154,6 +222,21 @@ struct DishDetailResponse: Decodable {
 
         dish = Dish(id: id, name: name, image: image, price: price, rating: rating)
         
+    }
+}
+
+struct Transaction: Codable, Identifiable {
+    var id: String
+    var date: Date
+    var items: [CartItem]
+    var totalAmount: Double
+    var transactionId: String
+    
+    var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 

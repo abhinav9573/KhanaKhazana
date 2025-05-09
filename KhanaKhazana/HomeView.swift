@@ -1,13 +1,14 @@
 import SwiftUI
 
 struct HomeView: View {
-    @StateObject private var dataController = DataController.shared
+    @EnvironmentObject private var dataController: DataController
     @State var selectedLanguage: Language = .english
     @State private var selectedCuisine: Cuisine?
     @State private var showCuisineDetail = false
     @State private var showCart = false
     @State private var scrollTarget: Int = 0
     @State private var currentIndex: Int = 0
+    @State private var selectedSegment = 0
     
     var originalCuisines: [Cuisine] {
         dataController.getCuisines()
@@ -15,15 +16,32 @@ struct HomeView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Segment 1: Cuisine Categories
-                    cuisineCategoriesView
-                    
-                    // Segment 2: Top Dishes
-                    topDishesView
+            VStack {
+                // Segment Picker
+                Picker("View", selection: $selectedSegment) {
+                    Text("Menu").tag(0)
+                    Text("Search").tag(1)
+                    Text("History").tag(2)
                 }
-                .padding()
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                
+                if selectedSegment == 0 {
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            // Segment 1: Cuisine Categories
+                            cuisineCategoriesView
+                            
+                            // Segment 2: Top Dishes
+                            topDishesView
+                        }
+                        .padding()
+                    }
+                } else if selectedSegment == 1 {
+                    SearchView()
+                } else {
+                    TransactionHistoryView()
+                }
             }
             .navigationTitle(selectedLanguage == .english ? "Khana Khazana" : "खाना खज़ाना")
             .toolbar {
@@ -222,8 +240,10 @@ struct CuisineCard: View {
 
 struct DishTile: View {
     let dish: Dish
-    @StateObject private var dataController = DataController.shared
+    @EnvironmentObject private var dataController: DataController
     @Binding var selectedLanguage: Language
+    @State private var isAddingToCart = false
+    @State private var imageLoaded = false
     
     private var cartItem: CartItem? {
         dataController.getCart()?.cartItems.first { $0.dish.id == dish.id }
@@ -232,15 +252,31 @@ struct DishTile: View {
     var body: some View {
         VStack(alignment: .leading) {
             ZStack {
-                AsyncImage(url: URL(string: dish.image)) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 160, height: 120)
-                        .clipped()
-                } placeholder: {
-                    Color.gray
-                        .frame(width: 160, height: 120)
+                AsyncImage(url: URL(string: dish.image)) { phase in
+                    switch phase {
+                    case .empty:
+                        Color.gray.frame(width: 160, height: 120)
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 160, height: 120)
+                            .clipped()
+                            .onAppear {
+                                imageLoaded = true
+                            }
+                    case .failure:
+                        Color.gray.frame(width: 160, height: 120)
+                            .overlay(
+                                Image(systemName: "photo")
+                                    .foregroundColor(.white)
+                            )
+                            .onAppear {
+                                imageLoaded = true // Consider image loaded even on failure
+                            }
+                    @unknown default:
+                        Color.gray.frame(width: 160, height: 120)
+                    }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 
@@ -273,6 +309,245 @@ struct DishTile: View {
                     Spacer()
                 }
             }
+            .onTapGesture {
+                print("Tapped dish: \(dish.name), ID: \(dish.id), Image loaded: \(imageLoaded)")
+            }
+            
+            HStack {
+                Text("₹\(String(format: "%.2f", dish.price))")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                HStack {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.yellow)
+                    Text(String(format: "%.1f", dish.rating))
+                }
+                .font(.caption)
+            }
+            
+            if let cartItem = cartItem {
+                HStack {
+                    Button(action: {
+                        // Remove from cart
+                        withAnimation {
+                            dataController.removeDishFromCart(dish: dish)
+                        }
+                    }) {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundColor(.green.opacity(0.7))
+                            .imageScale(.large)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Text("\(cartItem.quantity)")
+                        .font(.headline)
+                        .frame(minWidth: 30)
+                    
+                    Button(action: {
+                        // Add to cart directly
+                        withAnimation {
+                            directAddToCart()
+                        }
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.green.opacity(0.7))
+                            .imageScale(.large)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(8)
+            } else {
+                Button(action: {
+                    withAnimation {
+                        directAddToCart()
+                    }
+                }) {
+                    if isAddingToCart {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Color.green.opacity(0.7))
+                            .cornerRadius(8)
+                    } else {
+                        Text(selectedLanguage == .english ? "Add to Cart" : "कार्ट में जोड़ें")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Color.green.opacity(0.7))
+                            .cornerRadius(8)
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+                .disabled(isAddingToCart)
+            }
+        }
+        .padding(8)
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(radius: 3)
+    }
+    
+    private func directAddToCart() {
+        print("Adding \(dish.name) to cart, imageLoaded: \(imageLoaded)")
+        isAddingToCart = true
+        
+        // Create a direct copy of the dish to avoid reference issues
+        let dishCopy = Dish(
+            id: dish.id,
+            name: dish.name,
+            image: dish.image,
+            price: dish.price,
+            rating: dish.rating
+        )
+        
+        // Add directly on the main thread
+        DispatchQueue.main.async {
+            dataController.addDishToCart(dish: dishCopy)
+            
+            // Reset after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isAddingToCart = false
+            }
+        }
+    }
+}
+
+struct SearchView: View {
+    @EnvironmentObject private var dataController: DataController
+    @State private var searchText = ""
+    
+    var body: some View {
+        VStack {
+            // Search Bar
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+                
+                TextField("Search dishes...", text: $searchText)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .onChange(of: searchText) { newValue in
+                        dataController.searchText = newValue
+                    }
+                
+                if !searchText.isEmpty {
+                    Button(action: {
+                        searchText = ""
+                        dataController.searchText = ""
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+            .padding()
+            
+            // Results
+            if searchText.isEmpty {
+                VStack {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 50))
+                        .foregroundColor(.gray)
+                        .padding()
+                    
+                    Text("Search for your favorite dishes")
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if dataController.filteredDishes.isEmpty {
+                VStack {
+                    Image(systemName: "exclamationmark.magnifyingglass")
+                        .font(.system(size: 50))
+                        .foregroundColor(.gray)
+                        .padding()
+                    
+                    Text("No dishes found matching '\(searchText)'")
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 15) {
+                        ForEach(dataController.filteredDishes, id: \.id) { dish in
+                            SearchResultTile(dish: dish)
+                        }
+                    }
+                    .padding()
+                }
+            }
+        }
+    }
+}
+
+struct SearchResultTile: View {
+    let dish: Dish
+    @EnvironmentObject private var dataController: DataController
+    @State private var isAddingToCart = false
+    @State private var imageLoaded = false
+    
+    private var cartItem: CartItem? {
+        dataController.getCart()?.cartItems.first { $0.dish.id == dish.id }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading) {
+            ZStack {
+                AsyncImage(url: URL(string: dish.image)) { phase in
+                    switch phase {
+                    case .empty:
+                        Color.gray.frame(width: 160, height: 120)
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 160, height: 120)
+                            .clipped()
+                            .onAppear {
+                                imageLoaded = true
+                            }
+                    case .failure:
+                        Color.gray.frame(width: 160, height: 120)
+                            .overlay(
+                                Image(systemName: "photo")
+                                    .foregroundColor(.white)
+                            )
+                            .onAppear {
+                                imageLoaded = true // Consider image loaded even on failure
+                            }
+                    @unknown default:
+                        Color.gray.frame(width: 160, height: 120)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                
+                VStack {
+                    Spacer()
+                    HStack {
+                        Text(dish.name)
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                            .padding(4)
+                        Spacer()
+                    }
+                    .background(Color.black.opacity(0.7))
+                }
+            }
+            .onTapGesture {
+                print("Tapped search dish: \(dish.name), ID: \(dish.id), Image loaded: \(imageLoaded)")
+            }
             
             HStack {
                 Text("₹\(String(format: "%.2f", dish.price))")
@@ -297,7 +572,7 @@ struct DishTile: View {
                         }
                     }) {
                         Image(systemName: "minus.circle.fill")
-                            .foregroundColor(.green.opacity(0.7))
+                            .foregroundColor(.blue)
                             .imageScale(.large)
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -308,41 +583,168 @@ struct DishTile: View {
                     
                     Button(action: {
                         withAnimation {
-                            dataController.addDishToCart(dish: dish)
+                            directAddToCart()
                         }
                     }) {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundColor(.green.opacity(0.7))
+                            .foregroundColor(.blue)
                             .imageScale(.large)
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                .background(Color.green.opacity(0.1))
+                .background(Color.blue.opacity(0.1))
                 .cornerRadius(8)
             } else {
                 Button(action: {
                     withAnimation {
-                        dataController.addDishToCart(dish: dish)
+                        directAddToCart()
                     }
                 }) {
-                    Text(selectedLanguage == .english ? "Add to Cart" : "कार्ट में जोड़ें")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color.green.opacity(0.7))
-                        .cornerRadius(8)
+                    if isAddingToCart {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Color.blue)
+                            .cornerRadius(8)
+                    } else {
+                        Text("Add to Cart")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Color.blue)
+                            .cornerRadius(8)
+                    }
                 }
                 .buttonStyle(PlainButtonStyle())
+                .disabled(isAddingToCart)
             }
         }
         .padding(8)
         .background(Color.white)
         .cornerRadius(12)
         .shadow(radius: 3)
+    }
+    
+    private func directAddToCart() {
+        print("Adding search dish \(dish.name) to cart, imageLoaded: \(imageLoaded)")
+        isAddingToCart = true
+        
+        // Create a direct copy of the dish to avoid reference issues
+        let dishCopy = Dish(
+            id: dish.id,
+            name: dish.name,
+            image: dish.image,
+            price: dish.price,
+            rating: dish.rating
+        )
+        
+        // Add directly on the main thread
+        DispatchQueue.main.async {
+            dataController.addDishToCart(dish: dishCopy)
+            
+            // Reset after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isAddingToCart = false
+            }
+        }
+    }
+}
+
+struct TransactionHistoryView: View {
+    @EnvironmentObject private var dataController: DataController
+    
+    var body: some View {
+        Group {
+            if dataController.getTransactions().isEmpty {
+                VStack {
+                    Image(systemName: "bag")
+                        .font(.system(size: 50))
+                        .foregroundColor(.gray)
+                        .padding()
+                    
+                    Text("No transaction history yet")
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(dataController.getTransactions()) { transaction in
+                        TransactionRow(transaction: transaction)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Transaction History")
+    }
+}
+
+struct TransactionRow: View {
+    let transaction: Transaction
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading) {
+                    Text(transaction.formattedDate)
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    
+                    Text("ID: \(transaction.transactionId)")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing) {
+                    Text("₹\(String(format: "%.2f", transaction.totalAmount))")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Text("\(transaction.items.count) item(s)")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                }
+                
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .foregroundColor(.gray)
+            }
+            
+            if isExpanded {
+                Divider()
+                
+                ForEach(transaction.items, id: \.dish.id) { item in
+                    HStack {
+                        Text(item.dish.name)
+                            .font(.subheadline)
+                        
+                        Spacer()
+                        
+                        Text("\(item.quantity) × ₹\(String(format: "%.2f", item.dish.price))")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(10)
+        .shadow(radius: 1)
+        .padding(.horizontal)
+        .padding(.vertical, 5)
+        .onTapGesture {
+            withAnimation {
+                isExpanded.toggle()
+            }
+        }
     }
 }
 

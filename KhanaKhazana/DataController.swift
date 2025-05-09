@@ -60,11 +60,39 @@ class DataController: ObservableObject {
     
     private var user: User?
     
-    @Published private(set) var cart: Cart? = nil
+    @Published private(set) var cart: Cart? = nil {
+        didSet {
+            // Save to UserDefaults whenever cart changes
+            saveCartToUserDefaults()
+        }
+    }
+    @Published private(set) var transactions: [Transaction] = [] {
+        didSet {
+            // Save to UserDefaults whenever transactions change
+            saveTransactionsToUserDefaults()
+        }
+    }
     
     @Published var isAPIWorking: Bool = false
+    @Published var searchText: String = ""
+    
+    private let cartKey = "com.khanakhazana.cart"
+    private let transactionsKey = "com.khanakhazana.transactions"
     
     private init() {
+        print("DataController initialization - Loading saved data")
+        loadFromUserDefaults()
+        
+        // Print loaded cart for debugging
+        if let cart = self.cart {
+            print("Loaded cart with \(cart.cartItems.count) items")
+            for (index, item) in cart.cartItems.enumerated() {
+                print("  Item \(index + 1): \(item.dish.name), Quantity: \(item.quantity)")
+            }
+        } else {
+            print("No saved cart found")
+        }
+        
         Task {
             do {
                 try await loadCuisines(count: 10)
@@ -74,6 +102,73 @@ class DataController: ObservableObject {
         }
     }
     
+    // MARK: - UserDefaults Functions
+    private func loadFromUserDefaults() {
+        print("Loading data from UserDefaults")
+        
+        // Load cart
+        if let cartData = UserDefaults.standard.data(forKey: cartKey) {
+            do {
+                let savedCart = try JSONDecoder().decode(Cart.self, from: cartData)
+                self.cart = savedCart
+                print("Successfully loaded cart with \(savedCart.cartItems.count) items")
+            } catch {
+                print("Error decoding cart from UserDefaults: \(error)")
+                UserDefaults.standard.removeObject(forKey: cartKey)
+            }
+        }
+        
+        // Load transactions
+        if let transactionsData = UserDefaults.standard.data(forKey: transactionsKey) {
+            do {
+                let savedTransactions = try JSONDecoder().decode([Transaction].self, from: transactionsData)
+                self.transactions = savedTransactions
+                print("Successfully loaded \(savedTransactions.count) transactions")
+            } catch {
+                print("Error decoding transactions from UserDefaults: \(error)")
+                UserDefaults.standard.removeObject(forKey: transactionsKey)
+            }
+        }
+    }
+    
+    private func saveCartToUserDefaults() {
+        print("Saving cart to UserDefaults")
+        
+        if let cart = cart {
+            do {
+                let cartData = try JSONEncoder().encode(cart)
+                UserDefaults.standard.set(cartData, forKey: cartKey)
+                UserDefaults.standard.synchronize()
+                print("Successfully saved cart with \(cart.cartItems.count) items")
+            } catch {
+                print("Error encoding cart for UserDefaults: \(error)")
+            }
+        } else {
+            print("Removing cart from UserDefaults")
+            UserDefaults.standard.removeObject(forKey: cartKey)
+            UserDefaults.standard.synchronize()
+        }
+    }
+    
+    private func saveTransactionsToUserDefaults() {
+        print("Saving transactions to UserDefaults")
+        
+        do {
+            let transactionsData = try JSONEncoder().encode(transactions)
+            UserDefaults.standard.set(transactionsData, forKey: transactionsKey)
+            UserDefaults.standard.synchronize()
+            print("Successfully saved \(transactions.count) transactions")
+        } catch {
+            print("Error encoding transactions for UserDefaults: \(error)")
+        }
+    }
+    
+    // Public method to force data save (can be called at app termination)
+    func saveAllData() {
+        print("Manually triggering data save")
+        saveCartToUserDefaults()
+        saveTransactionsToUserDefaults()
+    }
     
     // MARK: - API Response Models
     struct ItemListResponse: Codable {
@@ -220,22 +315,47 @@ class DataController: ObservableObject {
     }
     
     func addDishToCart(dish: Dish) {
-        if var currentCart = self.cart {
-            if let index = currentCart.cartItems.firstIndex(where: { $0.dish.id == dish.id }) {
-                currentCart.cartItems[index].quantity += 1
+        print("Adding dish to cart: \(dish.name), ID: \(dish.id), Price: \(dish.price)")
+        
+        // Ensure this happens on the main thread for UI consistency
+        DispatchQueue.main.async {
+            // Create a new CartItem directly ensuring we have valid data
+            let newItem = CartItem(
+                dish: Dish(
+                    id: dish.id,
+                    name: dish.name.isEmpty ? "Unknown Dish" : dish.name,
+                    image: dish.image,
+                    price: max(0.01, dish.price),
+                    rating: dish.rating
+                ),
+                quantity: 1
+            )
+            
+            if var currentCart = self.cart {
+                // Check if dish already exists in cart
+                if let existingIndex = currentCart.cartItems.firstIndex(where: { $0.dish.id == dish.id }) {
+                    // Dish already exists, increase quantity
+                    currentCart.cartItems[existingIndex].quantity += 1
+                    print("Increased quantity for \(dish.name) to \(currentCart.cartItems[existingIndex].quantity)")
+                } else {
+                    // Add new dish to cart
+                    currentCart.cartItems.append(newItem)
+                    print("Added new dish \(dish.name) to cart")
+                }
                 self.cart = currentCart
             } else {
-                currentCart.cartItems.append(CartItem(dish: dish, quantity: 1))
-                self.cart = currentCart
+                // Create new cart
+                self.cart = Cart(
+                    id: UUID(),
+                    userId: UUID(),
+                    cartItems: [newItem]
+                )
+                print("Created new cart with dish \(dish.name)")
             }
-        } else {
-            // Create new cart with first item
-            let newCart = Cart(
-                id: UUID(),
-                userId: user?.id ?? UUID(),
-                cartItems: [CartItem(dish: dish, quantity: 1)]
-            )
-            self.cart = newCart
+            
+            // Notify observers
+            self.objectWillChange.send()
+            // Cart saving is now handled by the didSet observer
         }
     }
     
@@ -249,11 +369,13 @@ class DataController: ObservableObject {
                 currentCart.cartItems.remove(at: index)
             }
             self.cart = currentCart
+            // Cart saving is now handled by the didSet observer
         }
     }
     
     func orderDishesFromCart() {
         cart = nil
+        // Cart saving is now handled by the didSet observer
     }
     
     func getCurrentUser() -> User? {
@@ -264,12 +386,43 @@ class DataController: ObservableObject {
         cuisine.dishes
     }
     
+    // MARK: - Transaction Functions
+    func getTransactions() -> [Transaction] {
+        return transactions
+    }
+    
+    func addTransaction(transactionId: String, items: [CartItem], totalAmount: Double) {
+        let newTransaction = Transaction(
+            id: UUID().uuidString,
+            date: Date(),
+            items: items,
+            totalAmount: totalAmount,
+            transactionId: transactionId
+        )
+        transactions.append(newTransaction)
+        // Transaction saving is now handled by the didSet observer
+    }
+    
+    // MARK: - Search Functions
+    var filteredDishes: [Dish] {
+        guard !searchText.isEmpty else { return [] }
+        
+        var allDishes: [Dish] = []
+        for cuisine in cuisines {
+            allDishes.append(contentsOf: cuisine.dishes)
+        }
+        
+        return allDishes.filter { dish in
+            dish.name.lowercased().contains(searchText.lowercased())
+        }
+    }
+    
     // MARK: - Payment Functions
     func makePayment() async throws -> PaymentResponse {
         print("Starting payment process...")
         
-        guard let cart = self.cart else {
-            print("Error: No cart found")
+        guard let cart = self.cart, !cart.cartItems.isEmpty else {
+            print("Error: No cart found or cart is empty")
             throw URLError(.badURL)
         }
         
@@ -287,82 +440,89 @@ class DataController: ObservableObject {
         request.addValue("uonebancservceemultrS3cg8RaL30", forHTTPHeaderField: "X-Partner-API-Key")
         request.addValue("make_payment", forHTTPHeaderField: "X-Forward-Proxy-Action")
         
-        // Create payment items from cart items using rupee values as Double
-        let paymentItems = cart.cartItems.map { item in
-            PaymentItem(
-                cuisineId: Int(item.dish.id) ?? 0,
-                itemId: Int(item.dish.id) ?? 0,
-                itemPrice: Int(item.dish.price),
-                itemQuantity: item.quantity
-            )
-        }
-
-        // Total amount = sum of (price × quantity)
-        let totalAmount = cart.cartItems.reduce(into: 0.0) {
-            $0 += ($1.dish.price * Double($1.quantity))
-        }
-
-        print("Preparing payment request with total amount: \(totalAmount)")
+        // Create plain Dictionary representation for better API compatibility
+        let requestDict: [String: Any] = [
+            "total_amount": String(Int(cart.grandTotal)),
+            "total_items": cart.cartItems.reduce(0) { $0 + $1.quantity },
+            "data": cart.cartItems.map { item in
+                [
+                    "cuisine_id": Int(item.dish.id) ?? 1,
+                    "item_id": Int(item.dish.id) ?? 1,
+                    "item_price": Int(item.dish.price),
+                    "item_quantity": item.quantity
+                ]
+            }
+        ]
         
-        let paymentRequest = PaymentRequest(
-            totalAmount: String(Int(totalAmount) + Int(0.05 * Double(totalAmount))),
-            totalItems: paymentItems.reduce(0) { $0 + $1.itemQuantity },
-            data: paymentItems
-        )
+        print("Payment request: \(requestDict)")
         
         do {
-            let jsonData = try JSONEncoder().encode(paymentRequest)
+            let jsonData = try JSONSerialization.data(withJSONObject: requestDict)
+            request.httpBody = jsonData
+            
             if let jsonString = String(data: jsonData, encoding: .utf8) {
                 print("Request body: \(jsonString)")
             }
-            request.httpBody = jsonData
-            print("Request body encoded successfully")
         } catch {
             print("Error encoding request body: \(error)")
             throw error
         }
         
         print("Sending request to server...")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        print("Received response from server")
         
-        guard let httpResponse = response as? HTTPURLResponse else {
-            print("Error: Invalid HTTP response")
-            throw URLError(.badServerResponse)
-        }
-        
-        print("Response status code: \(httpResponse.statusCode)")
-        
-        if let responseString = String(data: data, encoding: .utf8) {
-            print("Response body: \(responseString)")
-        }
-        
-        switch httpResponse.statusCode {
-        case 200:
-            do {
-                let paymentResponse = try JSONDecoder().decode(PaymentResponse.self, from: data)
-                print("Payment successful with transaction reference: \(paymentResponse.txnRefNo)")
-                self.cart = nil
-                return paymentResponse
-            } catch {
-                print("Error decoding response: \(error)")
-                throw error
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            print("Received response from server")
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("Error: Invalid HTTP response")
+                throw URLError(.badServerResponse)
             }
-        case 400:
-            print("Error: Bad request - Invalid request format")
+            
+            print("Response status code: \(httpResponse.statusCode)")
+            
             if let responseString = String(data: data, encoding: .utf8) {
-                print("Server error details: \(responseString)")
+                print("Response body: \(responseString)")
             }
-            throw URLError(.badURL)
-        case 404:
-            print("Error: Resource not found")
-            throw URLError(.resourceUnavailable)
-        case 500:
-            print("Error: Server error")
-            throw URLError(.badServerResponse)
-        default:
-            print("Error: Unknown status code \(httpResponse.statusCode)")
-            throw URLError(.unknown)
+            
+            switch httpResponse.statusCode {
+            case 200:
+                do {
+                    let paymentResponse = try JSONDecoder().decode(PaymentResponse.self, from: data)
+                    print("Payment successful with transaction reference: \(paymentResponse.txnRefNo)")
+                    
+                    // Add transaction to history before clearing cart
+                    addTransaction(
+                        transactionId: paymentResponse.txnRefNo,
+                        items: cart.cartItems,
+                        totalAmount: cart.grandTotal
+                    )
+                    
+                    self.cart = nil
+                    return paymentResponse
+                } catch {
+                    print("Error decoding response: \(error)")
+                    throw error
+                }
+            case 400:
+                print("Error: Bad request - Invalid request format")
+                if let responseString = String(data: data, encoding: .utf8) {
+                    print("Server error details: \(responseString)")
+                }
+                throw URLError(.badURL)
+            case 404:
+                print("Error: Resource not found")
+                throw URLError(.resourceUnavailable)
+            case 500:
+                print("Error: Server error")
+                throw URLError(.badServerResponse)
+            default:
+                print("Error: Unknown status code \(httpResponse.statusCode)")
+                throw URLError(.unknown)
+            }
+        } catch {
+            print("Network error: \(error)")
+            throw error
         }
     }
 

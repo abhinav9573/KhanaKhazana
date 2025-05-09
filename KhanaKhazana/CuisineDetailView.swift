@@ -2,7 +2,7 @@ import SwiftUI
 
 struct CuisineDetailView: View {
     let cuisine: Cuisine
-    @StateObject private var dataController = DataController.shared
+    @EnvironmentObject private var dataController: DataController
     @State var selectedLanguage: Language = .english
     @Environment(\.dismiss) private var dismiss
     
@@ -33,6 +33,11 @@ struct CuisineDetailView: View {
                     ], spacing: 15) {
                         ForEach(cuisine.dishes, id: \.id) { dish in
                             DishTile(dish: dish, selectedLanguage: $selectedLanguage)
+                                .environmentObject(dataController)
+                                .id(dish.id)
+                                .onTapGesture {
+                                    print("Tapped dish in cuisine view: \(dish.name), ID: \(dish.id)")
+                                }
                         }
                     }
                     .padding(.horizontal)
@@ -47,6 +52,32 @@ struct CuisineDetailView: View {
                         Image(systemName: "xmark")
                             .font(.title2)
                     }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        selectedLanguage = selectedLanguage == .english ? .hindi : .english
+                    }) {
+                        Text(selectedLanguage == .english ? "अ" : "A")
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, selectedLanguage == .english ? 8 : 7)
+                            .background(Color.green.opacity(0.7))
+                            .foregroundColor(.white)
+                            .cornerRadius(.infinity)
+                    }
+                }
+            }
+            .onAppear {
+                print("CuisineDetailView appeared with \(cuisine.dishes.count) dishes")
+                cuisine.dishes.forEach { dish in
+                    print("Dish: \(dish.name), ID: \(dish.id), Price: \(dish.price)")
+                }
+                
+                // Debug print cart status
+                if let cart = dataController.getCart(), !cart.cartItems.isEmpty {
+                    print("CuisineDetailView: cart has \(cart.cartItems.count) items")
+                } else {
+                    print("CuisineDetailView: cart is empty")
                 }
             }
         }
